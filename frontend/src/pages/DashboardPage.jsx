@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ResponsiveContainer,
   LineChart,
@@ -11,6 +11,8 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { useAuth } from '../context/AuthContext';
+import VoiceSettingsModal from '../components/VoiceSettingsModal';
+import FraudModal from '../components/FraudModal';
 import {
   getDashboardMetrics,
   getQuestionsPerDayData,
@@ -23,7 +25,10 @@ import {
 import Sticker from '../components/Sticker';
 
 export const DashboardPage = () => {
-  const { currentMerchant } = useAuth();
+  const navigate = useNavigate();
+  const { currentMerchant, updateMerchantVoiceProfile } = useAuth();
+  const [isVoiceSettingsOpen, setIsVoiceSettingsOpen] = useState(false);
+  const [isFraudModalOpen, setIsFraudModalOpen] = useState(false);
 
   // Mode: 'merchant' (Personalized Store) or 'cluster' (Paytm Ops Command Center)
   const [viewMode, setViewMode] = useState('merchant');
@@ -248,6 +253,24 @@ export const DashboardPage = () => {
                 📊 Ops Cluster
               </button>
             </div>
+
+            <button
+              onClick={() => setIsFraudModalOpen(true)}
+              className="bg-emerald-600 text-white hover:bg-emerald-700 text-xs py-2 px-3.5 rounded-xl font-heading font-bold shadow-hard-sm flex items-center gap-1.5 transition"
+              title="Verify customer screenshot or UTR reference against internal ledger"
+            >
+              <span>🛡️</span>
+              <span>Verify Payment</span>
+            </button>
+
+            <button
+              onClick={() => setIsVoiceSettingsOpen(true)}
+              className="bg-navy text-white hover:bg-navy/90 text-xs py-2 px-3.5 rounded-xl font-heading font-bold shadow-hard-sm flex items-center gap-1.5 transition border border-yellow/30"
+              title="Voice & Language Settings"
+            >
+              <span>🎙️</span>
+              <span>Voice Settings</span>
+            </button>
 
             <Link
               to="/login"
@@ -849,6 +872,30 @@ export const DashboardPage = () => {
         )}
 
       </div>
+
+      {/* Voice & Language Settings Modal */}
+      <VoiceSettingsModal
+        isOpen={isVoiceSettingsOpen}
+        onClose={() => setIsVoiceSettingsOpen(false)}
+        merchantId={currentMerchant?.id === 'merchant-priya' ? 2 : currentMerchant?.id === 'merchant-vikram' ? 3 : 1}
+        currentSettings={{
+          preferredLanguage: currentMerchant?.preferredLanguage || 'en',
+          voiceResponseEnabled: currentMerchant?.voiceResponseEnabled ?? true,
+          speechRate: currentMerchant?.speechRate || 1.0,
+          preferredVoiceIdentifier: currentMerchant?.preferredVoiceIdentifier || '',
+        }}
+        onSaveSettings={(newSettings) => {
+          updateMerchantVoiceProfile(newSettings);
+        }}
+      />
+
+      {/* Fraud Verification Modal */}
+      <FraudModal
+        isOpen={isFraudModalOpen}
+        onClose={() => setIsFraudModalOpen(false)}
+        merchantId={currentMerchant?.id === 'merchant-priya' ? 2 : currentMerchant?.id === 'merchant-vikram' ? 3 : 1}
+        onSendToChat={(msg) => navigate('/demo')}
+      />
     </div>
   );
 };

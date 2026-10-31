@@ -27,6 +27,20 @@ ANGRY_KEYWORDS = [
     "useless", "worst", "bakwas", "dhoka", "chor", "complaint"
 ]
 
+LANGUAGE_SPECS = {
+    "en": {"name": "English", "instructions": "Respond in clear, professional English."},
+    "hi": {"name": "Hindi (हिंदी)", "instructions": "Respond naturally in Hindi in Devanagari script (हिंदी). Keep numbers, UTRs, and amounts clear."},
+    "hinglish": {"name": "Hinglish", "instructions": "Respond in natural conversational Hindi written in Latin/English alphabet (e.g. 'Maine aapka ledger check kiya hai. Payment verify ho gaya hai.')."},
+    "mr": {"name": "Marathi (मराठी)", "instructions": "Respond naturally in Marathi in Devanagari script (मराठी)."},
+    "ta": {"name": "Tamil (தமிழ்)", "instructions": "Respond naturally in Tamil (தமிழ் script)."},
+    "te": {"name": "Telugu (తెలుగు)", "instructions": "Respond naturally in Telugu (తెలుగు script)."},
+    "bn": {"name": "Bengali (বাংলা)", "instructions": "Respond naturally in Bengali (বাংলা script)."},
+    "gu": {"name": "Gujarati (ગુજરાતી)", "instructions": "Respond naturally in Gujarati (ગુજરાતી script)."},
+    "kn": {"name": "Kannada (ಕನ್ನಡ)", "instructions": "Respond naturally in Kannada (ಕನ್ನಡ script)."},
+    "ml": {"name": "Malayalam (മലയാളം)", "instructions": "Respond naturally in Malayalam (മലയാളം script)."},
+    "pa": {"name": "Punjabi (ਪੰਜਾਬੀ)", "instructions": "Respond naturally in Punjabi (ਪੰਜਾਬੀ script)."},
+}
+
 def get_genai_client():
     if genai is None:
         return None
@@ -38,6 +52,96 @@ def get_genai_client():
     except Exception as e:
         print(f"Notice: Failed to initialize Gemini client ({e}). Using deterministic playbook mode.")
         return None
+
+PLAYBOOK_I18N = {
+    "angry": {
+        "en": "I completely understand your frustration. Our Senior Paytm Desk Lead Kunal S. has been assigned to your priority case and will call you directly on your registered number.",
+        "hi": "मैं समझ सकता हूँ कि आप परेशान हैं। आपकी प्राथमिकता टिकट डेस्क लीड कुणाल एस. को सौंप दी गई है और वे आपसे सीधे संपर्क करेंगे।",
+        "hinglish": "Main samajh sakta hoon ki aap pareshan hain. Aapki priority ticket Desk Lead Kunal S. ko assign kar di gayi hai aur woh aapse jaldi contact karenge.",
+        "mr": "मी समजू शकतो की आपण त्रस्त आहात. आपली प्राथमिकता तक्रार डेस्क लीड कुणाल एस. यांना सोपवण्यात आली असून ते आपल्याशी लवकरच संपर्क साधतील.",
+        "ta": "உங்கள் சிரமத்தை நான் புரிந்துகொள்கிறேன். மூத்த மேலாளர் குணால் எஸ். உங்கள் வழக்கை ஏற்றுக்கொண்டு விரைவில் அழைப்பார்.",
+        "te": "మీ అసౌకర్యాన్ని నేను అర్థం చేసుకోగలను. మా సీనియర్ డెస్క్ లీడ్ కునాల్ ఎస్. మీ కేసుకు కేటాయించబడ్డారు మరియు త్వరలో సంప్రదిస్తారు.",
+        "bn": "আমি আপনার উদ্বেগ বুঝতে পারছি। আমাদের সিনিয়র ডেস্ক লিড কুণাল এস. আপনার বিষয়টি তদারকি করছেন এবং দ্রুত কল করবেন।",
+        "gu": "હું તમારી ચિંતા સમજી શકું છું. સીનિયર ડેસ્ક લીડ કુણાલ એસ. તમારો કેસ સંભાળી રહ્યા છે અને ટૂંક સમયમાં સંપર્ક કરશે.",
+        "kn": "ನಿಮ್ಮ ಸಮಸ್ಯೆಯನ್ನು ನಾನು ಅರ್ಥಮಾಡಿಕೊಂಡಿದ್ದೇನೆ. ಹಿರಿಯ ಡೆಸ್ಕ್ ಲೀಡ್ ಕುನಾಲ್ ಎಸ್. ನಿಮ್ಮ ಪ್ರಕರಣವನ್ನು ಪರಿಶೀಲಿಸುತ್ತಿದ್ದು ಶೀಘ್ರದಲ್ಲೇ ಕರೆ ಮಾಡಲಿದ್ದಾರೆ.",
+        "ml": "നിങ്ങളുടെ ബുദ്ധിമുട്ട് ഞാൻ മനസ്സിലാക്കുന്നു. സീനിയർ ഡെസ്ക് ലീഡ് കുനാൽ എസ്. ഉടൻ തന്നെ നിങ്ങളെ ഫോണിൽ ബന്ധപ്പെടും.",
+        "pa": "ਮੈਂ ਤੁਹਾਡੀ ਪਰੇਸ਼ਾਨੀ ਸਮਝ ਸਕਦਾ ਹਾਂ। ਸੀਨੀਅਰ ਡੈਸਕ ਲੀਡ ਕੁਨਾਲ ਐਸ. ਤੁਹਾਡੇ ਕੇਸ ਦੀ ਜਾਂਚ ਕਰ ਰਹੇ ਹਨ ਅਤੇ ਜਲਦੀ ਕਾਲ ਕਰਨਗੇ।",
+    },
+    "verify_genuine": {
+        "en": "I checked your live settlement ledger for UTR {utr}. The payment of ₹1,450.00 was credited to your account and it is safe to hand over goods to the customer.",
+        "hi": "मैंने आपका सेटलमेंट लेजर चेक किया है। UTR {utr} पर ₹1,450.00 का भुगतान सफलतापूर्वक सत्यापित हो गया है। आप ग्राहक को सामान दे सकते हैं।",
+        "hinglish": "Maine aapka live settlement ledger check kiya hai. UTR {utr} par payment successfully verify ho gaya hai. Aap customer ko samaan de sakte hain.",
+        "mr": "मी तुमचे सेटलमेंट लेजर तपासले आहे. UTR {utr} वरील ₹1,450.00 चे पेमेंट यशस्वीरीत्या व्हेरिफाय झाले आहे. आपण ग्राहकाला सामान देऊ शकता.",
+        "ta": "உங்கள் லெட்ஜரை சரிபார்த்தேன். UTR {utr} க்கான ₹1,450.00 கட்டணம் உறுதிசெய்யப்பட்டது. வாடிக்கையாளருக்கு பொருட்களை வழங்கலாம்.",
+        "te": "మీ లైవ్ లెడ్జర్‌ని తనిఖీ చేసాను. UTR {utr} చెల్లింపు ₹1,450.00 ధృవీకరించబడింది. మీరు కస్టమర్‌కి వస్తువులను అందజేయవచ్చు.",
+        "bn": "আমি আপনার সেটেলমেন্ট লেজার চেক করেছি। UTR {utr}-এ ₹1,450.00 পেমেন্ট সফলভাবে যাচাই করা হয়েছে। আপনি গ্রাহককে পণ্য দিতে পারেন।",
+        "gu": "મેં તમારું સેટલમેન્ટ લેજર ચેક કર્યું છે. UTR {utr} પર ₹1,450.00 ની ચુકવણી સફળતાપૂર્વક ચકાસાયેલ છે. તમે ગ્રાહકને સામાન આપી શકો છો.",
+        "kn": "ನಿಮ್ಮ ಸೆಟಲ್‌ಮೆಂಟ್ ಲೆಡ್ಜರ್ ಪರಿಶೀಲಿಸಲಾಗಿದೆ. UTR {utr} ಪಾವತಿ ₹1,450.00 ದೃಢೀಕರಿಸಲ್ಪಟ್ಟಿದೆ. ನೀವು ಗ್ರಾಹಕರಿಗೆ ಸರಕುಗಳನ್ನು ನೀಡಬಹುದು.",
+        "ml": "നിങ്ങളുടെ സെറ്റിൽമെന്റ് ലെഡ്ജർ പരിശോധിച്ചു. UTR {utr} വഴിയുള്ള ₹1,450.00 പേയ്‌മെന്റ് സ്ഥിരീകരിച്ചു. സാധനങ്ങൾ നൽകാം.",
+        "pa": "ਮੈਂ ਤੁਹਾਡਾ ਸੈਟਲਮੈਂਟ ਖਾਤਾ ਚੈੱਕ ਕੀਤਾ ਹੈ। UTR {utr} 'ਤੇ ₹1,450.00 ਦਾ ਭੁਗਤਾਨ ਵੈਰੀਫਾਈ ਹੋ ਗਿਆ ਹੈ। ਤੁਸੀਂ ਗਾਹਕ ਨੂੰ ਸਾਮਾਨ ਦੇ ਸਕਦੇ ਹੋ।",
+    },
+    "settlement_held": {
+        "en": "Ramesh ji, your pending settlement of ₹8,450 was held due to a bank mismatch on KYC. I verified your branch IFSC with the banking switch, re-triggered KYC to verified status, and re-routed the payout via IMPS. It will credit to your State Bank of India account within 10 minutes.",
+        "hi": "रमेश जी, आपका ₹8,450 का सेटलमेंट KYC बैंक मिसमैच के कारण रुका हुआ था। मैंने बैंक IFSC सत्यापित करके KYC अपडेट कर दिया है और पैसे IMPS द्वारा भेज दिए हैं। 10 मिनट में आपके State Bank of India खाते में आ जाएंगे!",
+        "hinglish": "Ramesh bhaiya, aapka ₹8,450 ka settlement KYC bank mismatch ki wajah se ruka hua tha. Maine bank IFSC verify karke KYC update kar diya aur payout IMPS rail se bhej diya. 10 minute mein account mein credit ho jayega!",
+        "mr": "रमेशजी, तुमचे ₹8,450 चे सेटलमेंट बँक IFSC मिसमॅचमुळे थांबले होते. मी IFSC व्हेरिफाय करून KYC अपडेट केले आहे आणि रक्कम IMPS द्वारे पाठवली आहे. 10 मिनिटांत खात्यात जमा होईल.",
+        "ta": "ரமேஷ் அவர்களே, உங்கள் ₹8,450 செட்டில்மென்ட் வங்கி IFSC சரிபார்க்கப்பட்டு IMPS மூலம் உடனடியாக அனுப்பி வைக்கப்பட்டுள்ளது.",
+        "te": "రమేష్ గారూ, మీ ₹8,450 పెండింగ్ సెటిల్‌మెంట్ బ్యాంక్ IFSC సరిచేయబడి IMPS ద్వారా ప్రాసెస్ చేయబడింది. 10 నిమిషాల్లో జమ అవుతుంది.",
+        "bn": "রমেশ বাবু, আপনার ₹8,450 সেটেলমেন্ট ব্যাংক IFSC যাচাই করে IMPS এর মাধ্যমে পাঠিয়ে দেওয়া হয়েছে। 10 মিনিটের মধ্যে জমা হবে।",
+        "gu": "રમેશભાઈ, તમારું ₹8,450 નું સેટલમેન્ટ બેંક IFSC વેરિફાય કરીને IMPS દ્વારા ખાતામાં ટ્રાન્સફર કરી દેવાયું છે.",
+        "kn": "ರಮೇಶ್ ಅವರೇ, ನಿಮ್ಮ ₹8,450 ಸೆಟಲ್‌ಮೆಂಟ್ ಬ್ಯಾಂಕ್ IFSC ಪರಿಶೀಲಿಸಿ IMPS ಮೂಲಕ ಖಾತೆಗೆ ಜಮೆ ಮಾಡಲಾಗಿದೆ. 10 ನಿಮಿಷಗಳಲ್ಲಿ ತಲುಪಲಿದೆ.",
+        "ml": "രമേഷ് ജി, നിങ്ങളുടെ ₹8,450 സെറ്റിൽമെന്റ് ബാങ്ക് IFSC പരിശോധിച്ച് IMPS വഴി ട്രാൻസ്ഫർ ചെയ്തിട്ടുണ്ട്. 10 മിനിറ്റിനകം ക്രെഡിറ്റാകും.",
+        "pa": "ਰਮੇਸ਼ ਜੀ, ਤੁਹਾਡਾ ₹8,450 ਦਾ ਬਕਾਇਆ ਸੈਟਲਮੈਂਟ ਬੈਂਕ IFSC ਵੈਰੀਫਾਈ ਕਰਕੇ IMPS ਰਾਹੀਂ ਭੇਜ ਦਿੱਤਾ ਗਿਆ ਹੈ।",
+    },
+    "held_85k": {
+        "en": "Vikram ji, your settlement of ₹85,000 is under manual risk review as it exceeds the automated ₹10,000 limit. Our Senior Desk Lead Kunal S. has taken personal charge of your case and will call you shortly.",
+        "hi": "विक्रम जी, आपका ₹85,000 का सेटलमेंट मैनुअल जोखिम समीक्षा के अंतर्गत है क्योंकि यह ₹10,000 की स्वचालित सीमा से अधिक है। सीनियर डेस्क अधिकारी कुणाल एस. को टिकट सौंप दिया गया है।",
+        "hinglish": "Vikram ji, aapki ₹85,000 ki settlement manual risk review ke antargat aati hai kyunki yeh ₹10,000 limit se upar hai. Senior Desk Officer Kunal S. aapse jaldi contact karenge.",
+        "mr": "विक्रमजी, तुमचे ₹85,000 चे सेटलमेंट मॅन्युअल रिस्क रिव्ह्यू अंतर्गत आहे कारण ते ₹10,000 च्या मर्यादेपेक्षा जास्त आहे. डेस्क अधिकारी कुणाल एस. लवकरच संपर्क करतील.",
+        "ta": "விக்ரம் அவர்களே, உங்கள் ₹85,000 செட்டில்மென்ட் ₹10,000 வரம்பை விட அதிகமாக உள்ளதால் ஆய்வில் உள்ளது. மூத்த அதிகாரி குணால் எஸ். விரைவில் தொடர்புகொள்வார்.",
+        "te": "విక్రమ్ గారూ, మీ ₹85,000 సెటిల్‌మెంట్ ఆటోమేటెడ్ పరిమితి కంటే ఎక్కువ ఉన్నందున సమీక్షలో ఉంది. సీనియర్ అధికారి కునాల్ ఎస్. సంప్రదిస్తారు.",
+        "bn": "বিক্রম বাবু, আপনার ₹85,000 সেটেলমেন্ট সীমা অতিক্রম করায় রিভিউতে রয়েছে। সিনিয়র অফিসার কুণাল এস. শীঘ্রই যোগাযোগ করবেন।",
+        "gu": "વિક્રમભાઈ, તમારું ₹85,000 નું સેટલમેન્ટ ₹10,000 ની મર્યાદાથી વધુ હોવાથી રિવ્યૂ હેઠળ છે. સીનિયર ઓફિસર કુણાલ એસ. સંપર્ક કરશે.",
+        "kn": "ವಿಕ್ರಮ್ ಅವರೇ, ನಿಮ್ಮ ₹85,000 ಸೆಟಲ್‌ಮೆಂಟ್ ಮಿತಿಯನ್ನು ಮೀರಿರುವುದರಿಂದ ಪರಿಶೀಲನೆಯಲ್ಲಿದೆ. ಹಿರಿಯ ಅಧಿಕಾರಿ ಕುನಾಲ್ ಎಸ್. ಶೀಘ್ರದಲ್ಲೇ ಸಂಪರ್ಕಿಸಲಿದ್ದಾರೆ.",
+        "ml": "വിക്രം ജി, ₹85,000 സെറ്റിൽമെന്റ് മാനുവൽ പരിശോധനയിലാണ്. സീനിയർ ഡെസ്ക് ലീഡ് കുനാൽ എസ്. ഉടൻ ബന്ധപ്പെടും.",
+        "pa": "ਵਿਕਰਮ ਜੀ, ਤੁਹਾਡਾ ₹85,000 ਦਾ ਸੈਟਲਮੈਂਟ ਸਮੀਖਿਆ ਅਧੀਨ ਹੈ ਕਿਉਂਕਿ ਇਹ ₹10,000 ਦੀ ਹੱਦ ਤੋਂ ਵੱਧ ਹੈ। ਅਧਿਕਾਰੀ ਕੁਨਾਲ ਐਸ. ਜਲਦੀ ਸੰਪਰਕ ਕਰਨਗੇ।",
+    },
+    "refund_stuck": {
+        "en": "Priya ji, the customer refund of ₹1,200 was stuck at the switch. I have retried the reversal through NPCI fast-track API. The amount will reflect in the customer's account shortly.",
+        "hi": "प्रिया जी, ग्राहक का ₹1,200 का अटका हुआ रिफंड NPCI स्विच पर री-ट्राई कर दिया गया है। राशि जल्द ही ग्राहक के खाते में जमा हो जाएगी।",
+        "hinglish": "Priya ji, customer ka ₹1,200 ka stuck refund NPCI switch par retry kar diya gaya hai. Amount jaldi hi customer ke account mein reflect ho jayega.",
+        "mr": "प्रियाजी, ग्राहकाचा ₹1,200 चा अडकलेला परतावा NPCI वर पुन्हा प्रक्रिया करण्यात आला आहे. रक्कम लवकरच ग्राहकाच्या खात्यात जमा होईल.",
+        "ta": "பிரியா அவர்களே, வாடிக்கையாளரின் ₹1,200 நிலுவைத் தொகை மீண்டும் செயல்படுத்தப்பட்டுள்ளது. விரைவில் வங்கி கணக்கில் வரவு வைக்கப்படும்.",
+        "te": "ప్రియా గారూ, కస్టమర్ యొక్క ₹1,200 రీఫండ్ విజయవంతంగా రీ-ట్రై చేయబడింది. త్వరలోనే ఖాతాలో జమ అవుతుంది.",
+        "bn": "প্রিয়া দেবী, গ্রাহকের ₹1,200 রিফান্ড পুনরায় প্রক্রিয়া করা হয়েছে এবং দ্রুত অ্যাকাউন্টে জমা হবে।",
+        "gu": "પ્રિયાબેન, ગ્રાહકનું ₹1,200 નું રિફંડ ફરીથી પ્રોસેસ કરવામાં આવ્યું છે. ટૂંક સમયમાં ગ્રાહકના ખાતામાં જમા થઈ જશે.",
+        "kn": "ಪ್ರಿಯಾ ಅವರೇ, ಗ್ರಾಹಕರ ₹1,200 ಮರುಪಾವತಿಯನ್ನು ಮರುಪ್ರಯತ್ನಿಸಲಾಗಿದ್ದು, ಶೀಘ್ರದಲ್ಲೇ ಅವರ ಖಾತೆಗೆ ಜಮೆ ಆಗಲಿದೆ.",
+        "ml": "പ്രിയ ജി, ഉപഭോക്താവിന്റെ ₹1,200 റീഫണ്ട് വീണ്ടും പ്രോസസ്സ് ചെയ്തിട്ടുണ്ട്. ഉടൻ തന്നെ അക്കൗണ്ടിൽ എത്തും.",
+        "pa": "ਪ੍ਰਿਆ ਜੀ, ਗਾਹਕ ਦਾ ₹1,200 ਦਾ ਰਿਫੰਡ ਦੁਬਾਰਾ ਭੇਜ ਦਿੱਤਾ ਗਿਆ ਹੈ। ਰਕਮ ਜਲਦੀ ਹੀ ਗਾਹਕ ਦੇ ਖਾਤੇ ਵਿੱਚ ਆ ਜਾਵੇਗੀ।",
+    },
+    "soundbox_fixed": {
+        "en": "Vikram ji, your Soundbox device (PTM-SB-9014) had a network glitch. I have reconnected it over the air and recalibrated the master volume to 90%. Sound alerts are now fully functional.",
+        "hi": "विक्रम जी, आपके साउंडबॉक्स (PTM-SB-9014) में नेटवर्क समस्या थी। मैंने ओवर-द-एयर कनेक्शन ठीक कर दिया है और वॉल्यूम 90% पर सेट कर दिया है। अब ऑडियो अलर्ट पूरी तरह काम कर रहे हैं।",
+        "hinglish": "Vikram ji, aapke Soundbox (PTM-SB-9014) par network issue tha. Maine OTA fix apply kar diya hai aur volume 90% calibrate kar diya hai. Ab clear audio chimes aayenge.",
+        "mr": "विक्रमजी, तुमच्या साउंडबॉक्समधील नेटवर्क समस्या दूर केली आहे आणि व्हॉल्यूम 90% वर सेट केला आहे. आता सर्व अलर्ट व्यवस्थित ऐकू येतील.",
+        "ta": "விக்ரம் அவர்களே, உங்கள் சவுண்ட்பாக்ஸ் நெட்வொர்க் சரிசெய்யப்பட்டு, ஒலி அளவு 90% ஆக உயர்த்தப்பட்டுள்ளது.",
+        "te": "విక్రమ్ గారూ, మీ సౌండ్‌బాక్స్ నెట్‌వర్క్ సమస్య పరిష్కరించబడింది మరియు వాల్యూమ్ 90% కి సెట్ చేయబడింది.",
+        "bn": "বিক্রম বাবু, আপনার সাউন্ডবক্সের নেটওয়ার্ক সমস্যা সমাধান করা হয়েছে এবং ভলিউম 90% করা হয়েছে।",
+        "gu": "વિક્રમભાઈ, તમારા સાઉન્ડબોક્સની નેટવર્ક સમસ્યા દૂર કરવામાં આવી છે અને વોલ્યુમ 90% સેટ કરવામાં આવ્યું છે.",
+        "kn": "ವಿಕ್ರಮ್ ಅವರೇ, ನಿಮ್ಮ ಸೌಂಡ್‌ಬಾಕ್ಸ್ ನೆಟ್‌ವರ್ಕ್ ದೋಷವನ್ನು ಸರಿಪಡಿಸಲಾಗಿದ್ದು ವಾಲ್ಯೂಮ್ 90% ಕ್ಕೆ ನಿಗದಿಪಡಿಸಲಾಗಿದೆ.",
+        "ml": "വിക്രം ജി, നിങ്ങളുടെ സൗണ്ട്‌ബോക്‌സ് നെറ്റ്‌വർക്ക് തകരാർ പരിഹരിച്ച് വോളിയം 90% ആക്കി മാറ്റിയിട്ടുണ്ട്.",
+        "pa": "ਵਿਕਰਮ ਜੀ, ਤੁਹਾਡੇ ਸਾਊਂਡਬਾਕਸ ਦੀ ਨੈੱਟਵਰਕ ਸਮੱਸਿਆ ਠੀਕ ਕਰ ਦਿੱਤੀ ਗਈ ਹੈ ਅਤੇ ਆਵਾਜ਼ 90% 'ਤੇ ਸੈੱਟ ਕੀਤੀ ਗਈ ਹੈ।",
+    },
+}
+
+def get_localized_reply(key: str, lang: str, **kwargs) -> str:
+    lang_key = lang.lower() if lang else "en"
+    bucket = PLAYBOOK_I18N.get(key, {})
+    template = bucket.get(lang_key) or bucket.get("en", "")
+    try:
+        return template.format(**kwargs)
+    except Exception:
+        return template
 
 async def stream_fallback_playbook(
     session_id: str,
@@ -53,16 +157,20 @@ async def stream_fallback_playbook(
     lower = message.lower()
     tool_sequence = []
     reply_text = ""
+    lang = (language or "en").lower()
 
     if has_angry:
-        reply_text = (
-            "Main samajh sakta hoon ki aap pareshan hain. Aapki priority ticket Desk Lead Kunal S. "
-            "ko assign kar di gayi hai aur woh aapse jaldi hi seedha contact karenge. Hum ise turant theek karenge."
-            if language == "hi" else
-            "I completely understand your frustration. Our Senior Paytm Desk Lead Kunal S. has been assigned "
-            "to your priority case and will call you directly on your registered number."
-        )
+        reply_text = get_localized_reply("angry", lang)
         current_status = "handed_to_human"
+
+    elif "430198271049" in lower or ("utr" in lower and any(c.isdigit() for c in message)) or ("verify" in lower and "payment" in lower) or "screenshot" in lower:
+        import re
+        utr_match = re.search(r"\b(\d{10,20})\b", message)
+        candidate_utr = utr_match.group(1) if utr_match else "430198271049"
+        tool_sequence = [
+            ("verify_payment_claim", {"utr": candidate_utr, "amount": 1450.0, "merchant_id": merchant_id or 1}),
+        ]
+        reply_text = get_localized_reply("verify_genuine", lang, utr=candidate_utr)
 
     elif "85000" in lower or "85,000" in lower:
         s_id = 38
@@ -74,13 +182,7 @@ async def stream_fallback_playbook(
             ("get_settlement_status", {"merchant_id": merchant_id or 3}),
             ("reroute_settlement_imps", {"settlement_id": s_id}),
         ]
-        reply_text = (
-            "Vikram ji, aapki ₹85,000 ki settlement manual risk review ke antargat aati hai kyunki yeh "
-            "₹10,000 ki automated limit se upar hai. Senior Desk Officer Kunal S. ko ticket assign kar di gayi hai."
-            if language == "hi" else
-            "Vikram ji, your settlement of ₹85,000 is under manual risk review as it exceeds the automated ₹10,000 limit. "
-            "Our Senior Desk Lead Kunal S. has taken personal charge of your case and will call you shortly."
-        )
+        reply_text = get_localized_reply("held_85k", lang)
         current_status = "handed_to_human"
 
     elif "mera paisa" in lower or "paisa nahi" in lower or "settlement" in lower or "late" in lower:
@@ -95,15 +197,7 @@ async def stream_fallback_playbook(
             ("retrigger_kyc", {"merchant_id": merchant_id or 1}),
             ("reroute_settlement_imps", {"settlement_id": s_id}),
         ]
-        reply_text = (
-            "Ramesh bhaiya, aapka ₹8,450 ka settlement KYC bank mismatch ki wajah se ruka hua tha. "
-            "Maine bank IFSC verify karke KYC update kar diya hai aur paise IMPS rail se bhej diye hain. "
-            "Agli 10 minute mein aapke State Bank of India khate mein aa jayenge!"
-            if language == "hi" else
-            "Ramesh ji, your pending settlement of ₹8,450 was held due to a bank mismatch on KYC. "
-            "I verified your branch IFSC with the banking switch, re-triggered KYC to verified status, "
-            "and re-routed the payout via IMPS. It will credit to your account within 10 minutes."
-        )
+        reply_text = get_localized_reply("settlement_held", lang)
 
     elif "refund" in lower:
         r_id = 13
@@ -115,13 +209,7 @@ async def stream_fallback_playbook(
             ("get_refund_status", {"merchant_id": merchant_id or 2}),
             ("retry_refund", {"refund_id": r_id}),
         ]
-        reply_text = (
-            "Priya ji, customer ka ₹1,200 ka stuck refund NPCI rail par fail ho gaya tha. "
-            "Maine auto-reversal retry kar diya hai. Amount customer ke UPI VPA par credit ho jayega."
-            if language == "hi" else
-            "Priya ji, the customer refund of ₹1,200 was stuck at the switch. I have retried the reversal "
-            "through NPCI fast-track API. The amount will reflect in the customer's account shortly."
-        )
+        reply_text = get_localized_reply("refund_stuck", lang)
 
     elif "loan" in lower or "karz" in lower or "presanction" in lower or "pre-sanction" in lower or "sanction" in lower:
         if any(c.isdigit() for c in message) or "200000" in lower or "presanction" in lower or "pre-sanction" in lower:
@@ -132,7 +220,7 @@ async def stream_fallback_playbook(
             reply_text = (
                 "Badhai ho! Aapke 30-day QR sales ke aadhar par ₹2,00,000 ka shop loan pre-sanction kar diya gaya hai. "
                 "Hamaare field agent Rajesh kal subah 11:00 AM biometric signoff ke liye aayenge."
-                if language == "hi" else
+                if lang in ["hi", "hinglish"] else
                 "Congratulations! Based on your 30-day QR sales collections, your shop loan of ₹2,00,000 has been digitally "
                 "pre-sanctioned. Field agent Rajesh will visit your shop tomorrow at 11:00 AM for biometric sign-off."
             )
@@ -143,7 +231,7 @@ async def stream_fallback_playbook(
             reply_text = (
                 "Priya ji, aapke store ke turnover ke aadhar par aap ₹5,00,000 tak ke shop loan ke liye eligible hain. "
                 "Kya aap ₹2,00,000 ya koi nishchit amount pre-sanction karwana chahti hain?"
-                if language == "hi" else
+                if lang in ["hi", "hinglish"] else
                 "Priya ji, based on your steady QR collections, you are eligible for up to ₹5,00,000 working capital loan. "
                 "Would you like me to pre-sanction an offer for you?"
             )
@@ -157,7 +245,7 @@ async def stream_fallback_playbook(
             reply_text = (
                 "Priya ji, aapka Soundbox offline hai kyunki battery 9% par hai. Battery critically low hone ke karan "
                 "remote fix sambhav nahi hai. Kripya device ko charger se connect karein."
-                if language == "hi" else
+                if lang in ["hi", "hinglish"] else
                 "Priya ji, your Soundbox device is offline because the battery is critically low at 9%. "
                 "A remote fix cannot be applied; please plug the Soundbox into its 5V charger to turn it on."
             )
@@ -166,13 +254,7 @@ async def stream_fallback_playbook(
                 ("diagnose_soundbox", {"merchant_id": merchant_id or 3}),
                 ("remote_fix_soundbox", {"merchant_id": merchant_id or 3}),
             ]
-            reply_text = (
-                "Vikram ji, aapke Soundbox 4.0 par network issue detect hua tha. Maine over-the-air fix apply kar diya hai "
-                "aur volume 90% par calibrate kar diya hai. Ab har transaction par loud clear audio chime aayega."
-                if language == "hi" else
-                "Vikram ji, your Soundbox device (PTM-SB-9014) had a network glitch. I have reconnected it over the air "
-                "and recalibrated the master volume to 90%. Sound alerts are now fully functional."
-            )
+            reply_text = get_localized_reply("soundbox_fixed", lang)
 
     elif mode == "sales" or lead_id:
         tool_sequence = [
@@ -370,15 +452,22 @@ async def stream_chat(
         )
 
     ist_now_str = now_ist().strftime("%Y-%m-%d %H:%M:%S IST")
+    lang_info = LANGUAGE_SPECS.get(language, LANGUAGE_SPECS["en"])
     system_prompt = f"""You are Saathi, a friendly AI teammate for Paytm merchants and sales leads.
 Current Date and Time: {ist_now_str}
 Session Mode: {mode}
-Preferred Language: {language}
+Selected Communication Language: {lang_info['name']} ({language})
 Active Merchant: {merchant_info_str}
 Active Lead: {lead_info_str}
 Automated Safe Execution Limit: Rs {ai_limit:,.0f}
 
-Reply in the user's language (English, Hindi, Marathi or Hinglish) in short simple sentences.
+CRITICAL LANGUAGE REQUIREMENT:
+- You MUST generate your conversational response directly and naturally in {lang_info['name']}.
+- {lang_info['instructions']}
+- Preserve all currency amounts (e.g. ₹1,450, ₹8,450), UTR reference numbers, bank names (e.g. State Bank of India), IFSC codes, and dates accurately and clearly without translation distortion.
+- Do NOT translate final English with post-processing; compose the response natively in {lang_info['name']}.
+
+Reply in short simple sentences.
 Always check facts with tools before answering. Fix the problem yourself when the tools allow it.
 Never invent amounts, dates or statuses. Do not mention tool names or internal database IDs to the user.
 
@@ -388,6 +477,7 @@ Playbooks:
 - Soundbox problem: Call diagnose_soundbox, then remote_fix_soundbox if the fault is not battery_low (if battery is low, kindly ask the merchant to charge the device).
 - Loan question: Call check_loan_eligibility, then presanction_loan if eligible and the merchant agrees to an amount.
 - Disputes above Rs {ai_limit:,.0f}, fraud, anger, or anything you cannot fix: A human desk officer takes over. The tools do this automatically; explain kindly what happens next.
+- Customer payment claim, screenshot, or UTR verification (e.g. 'Customer says they paid', 'Check UTR 430198271049'): Call verify_payment_claim with the candidate UTR and amount. Always rely strictly on the tool verdict. If VERIFIED_RECEIVED, reassure the merchant that funds are confirmed on the ledger. If NOT_FOUND, MISMATCH, or ALREADY_CLAIMED, use the tool explanation and advise the merchant not to release goods.
 - Sales mode: Find the merchant's business need, pitch ONE fitting product, use search_policy, call send_offer, then book_followup.
 """
 

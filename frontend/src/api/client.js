@@ -84,3 +84,43 @@ export async function streamChat(body, onEvent, signal) {
   }
 }
 
+/**
+ * Fraud & Payment Claim Verification API (Phase 1)
+ */
+export async function verifyPaymentClaim(formData) {
+  const url = `${BASE_URL}/api/fraud/verify-payment`;
+  const res = await fetch(url, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    throw new Error(errBody.detail || `Verification failed: HTTP ${res.status}`);
+  }
+  return await res.json();
+}
+
+export async function getFraudCases(merchantId) {
+  const q = merchantId ? `?merchant_id=${merchantId}` : '';
+  return fetchJson(`/api/fraud/cases${q}`);
+}
+
+export async function getFraudCaseDetail(caseRef, merchantId) {
+  const q = merchantId ? `?merchant_id=${merchantId}` : '';
+  return fetchJson(`/api/fraud/cases/${caseRef}${q}`);
+}
+
+/**
+ * Merchant Voice & Language Settings API (Section 15.2 - 15.9)
+ */
+export async function getVoiceSettings(merchantId) {
+  return fetchJson(`/api/merchants/${merchantId}/voice-settings`);
+}
+
+export async function updateVoiceSettings(merchantId, settings) {
+  return fetchJson(`/api/merchants/${merchantId}/voice-settings`, {
+    method: 'PUT',
+    body: JSON.stringify(settings),
+  });
+}
+

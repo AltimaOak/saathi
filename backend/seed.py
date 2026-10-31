@@ -20,21 +20,29 @@ from models import (
 def seed(db: Session):
     random.seed(7)
 
-    # Make sure all tables exist
-    Base.metadata.create_all(bind=engine)
+    # Make sure all tables exist on the active session's engine
+    target_engine = db.get_bind()
+    Base.metadata.create_all(bind=target_engine)
+    from database import upgrade_schema
+    upgrade_schema(target_engine)
 
     # Truncate tables cleanly
     is_postgres = db.bind.dialect.name == "postgresql"
     if is_postgres:
         db.execute(text("""
-            TRUNCATE TABLE messages, action_log, tickets, leads, loans, soundboxes,
+            TRUNCATE TABLE fraud_evidence, fraud_cases, payment_claims, fraud_rules,
+            messages, action_log, tickets, leads, loans, soundboxes,
             transactions, refunds, settlements, sessions, merchants
             RESTART IDENTITY CASCADE;
         """))
     else:
-        for tbl in ["messages", "action_log", "tickets", "leads", "loans", "soundboxes",
+        for tbl in ["fraud_evidence", "fraud_cases", "payment_claims", "fraud_rules",
+                    "messages", "action_log", "tickets", "leads", "loans", "soundboxes",
                     "transactions", "refunds", "settlements", "sessions", "merchants"]:
-            db.execute(text(f"DELETE FROM {tbl};"))
+            try:
+                db.execute(text(f"DELETE FROM {tbl};"))
+            except Exception:
+                pass
 
     current_ist = now_ist()
 
@@ -216,9 +224,80 @@ def seed(db: Session):
                     payer=random.choice(payers),
                     mode="UPI QR",
                     status="success",
+                    utr=f"4301{random.randint(10000000, 99999999)}",
+                    order_ref=f"ORD-{random.randint(10000, 99999)}",
+                    payer_vpa=f"payer{random.randint(100, 999)}@upi",
+                    last_synced_at=current_ist,
                     created_at=t_time,
                 )
                 db.add(t)
+
+    # Deterministic watermarked SYNTHETIC TEST transactions for automated fraud testing
+    # 1. Genuine claim baseline (Merchant 1: Ramesh)
+    db.add(Transaction(
+        merchant_id=1,
+        amount=1450.0,
+        payer="Rahul Sharma (SYNTHETIC TEST)",
+        mode="UPI QR",
+        status="success",
+        utr="430198271049",
+        order_ref="ORD-TEST-1001",
+        payer_vpa="rahul@okaxis",
+        last_synced_at=current_ist,
+        created_at=current_ist - timedelta(minutes=15),
+    ))
+    # 2. Amount mismatch test record (Ledger has 850.0, claim asks for 1850.0)
+    db.add(Transaction(
+        merchant_id=1,
+        amount=850.0,
+        payer="Pooja Verma (SYNTHETIC TEST)",
+        mode="UPI QR",
+        status="success",
+        utr="430198271050",
+        order_ref="ORD-TEST-1002",
+        payer_vpa="pooja@okhdfc",
+        last_synced_at=current_ist,
+        created_at=current_ist - timedelta(minutes=25),
+    ))
+    # 3. Wrong recipient test record (Belongs to Merchant 2: Priya, so Ramesh checking it gets MISMATCH_RECEIVER)
+    db.add(Transaction(
+        merchant_id=2,
+        amount=2500.0,
+        payer="Amit Deshmukh (SYNTHETIC TEST)",
+        mode="UPI QR",
+        status="success",
+        utr="430198279999",
+        order_ref="ORD-TEST-2001",
+        payer_vpa="amit@paytm",
+        last_synced_at=current_ist,
+        created_at=current_ist - timedelta(minutes=30),
+    ))
+    # 4. Failed payment status record
+    db.add(Transaction(
+        merchant_id=1,
+        amount=3200.0,
+        payer="Kunal Shah (SYNTHETIC TEST)",
+        mode="UPI QR",
+        status="failed",
+        utr="430198278888",
+        order_ref="ORD-TEST-1003",
+        payer_vpa="kunal@upi",
+        last_synced_at=current_ist,
+        created_at=current_ist - timedelta(minutes=40),
+    ))
+    # 5. Pending payment status record
+    db.add(Transaction(
+        merchant_id=1,
+        amount=4100.0,
+        payer="Sunil Rao (SYNTHETIC TEST)",
+        mode="UPI QR",
+        status="pending",
+        utr="430198277777",
+        order_ref="ORD-TEST-1004",
+        payer_vpa="sunil@icici",
+        last_synced_at=current_ist,
+        created_at=current_ist - timedelta(minutes=5),
+    ))
     db.commit()
 
     # 3. Settlements

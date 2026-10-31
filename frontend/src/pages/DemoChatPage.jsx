@@ -2,6 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import Sticker from '../components/Sticker';
+import VoiceSettingsModal from '../components/VoiceSettingsModal';
+import VoicePlaybackBar from '../components/VoicePlaybackBar';
+import FraudModal from '../components/FraudModal';
+import { SUPPORTED_LANGUAGES, voiceService } from '../services/voiceService';
 import {
   getGreetingMessage,
   executeChatScenario,
@@ -13,6 +17,7 @@ import {
 /* ---------- constants ---------- */
 
 const QUICK_CHIPS = [
+  'Verify payment screenshot',
   'My settlement is late',
   'My refund is stuck',
   'I want a loan for my shop',
@@ -22,6 +27,7 @@ const QUICK_CHIPS = [
 ];
 
 const QUICK_ACTIONS = [
+  ['Verify payment screenshot', 'Verify payment screenshot for UTR 430198271049'],
   ['Soundbox diagnostic', 'Soundbox light red ho gayi hai aur voice nahi aa rahi'],
   ['Check settlement', 'My settlement is late'],
   ['Dispute a UPI payment', 'Customer paid ₹1,450 but settlement stuck'],
@@ -29,12 +35,14 @@ const QUICK_ACTIONS = [
 ];
 
 const PLACEHOLDERS = {
-  en: 'Ask about settlements, refunds, Soundbox or loans',
-  hi: 'अपनी समस्या लिखें',
-  mr: 'तुमची समस्या लिहा',
+  en: 'Ask about settlements, refunds, Soundbox, verify payments or loans',
+  hi: 'भुगतान सत्यापन, सेटलमेंट या साउंडबॉक्स के बारे में पूछें',
+  hinglish: 'Payment verify karna ho ya settlement, poochhein',
+  mr: 'पेमेंट व्हेरिफिकेशन, सेटलमेंट किंवा साउंडबॉक्सबद्दल विचारा',
 };
 
 const CHIP_ICONS = {
+  'Verify payment screenshot': '🛡️',
   'My settlement is late': '⏱️',
   'My refund is stuck': '↩️',
   'I want a loan for my shop': '🏪',
@@ -44,6 +52,7 @@ const CHIP_ICONS = {
 };
 
 const TILES = [
+  ['🛡️', 'Verify Payment', 'Check receipt / UTR', 'Verify payment screenshot for UTR 430198271049', 'from-emerald-50 to-white'],
   ['💰', 'Settlements', 'Track late payouts', 'My settlement is late', 'from-sky-50 to-white'],
   ['↩️', 'Refunds', 'Find a stuck refund', 'My refund is stuck', 'from-violet-50 to-white'],
   ['🏪', 'Shop loan', 'Check your offer', 'I want a loan for my shop', 'from-amber-50 to-white'],
@@ -51,10 +60,29 @@ const TILES = [
 ];
 
 const CARD_ICONS = {
-  settlement: '🏦', soundbox_payout: '🔊', refund: '↩️', loan: '🏪', soundbox: '📟', human_desk: '🧑‍💼', profile_sync: '✅',
+  settlement: '🏦',
+  soundbox_payout: '🔊',
+  refund: '↩️',
+  loan: '🏪',
+  soundbox: '📟',
+  human_desk: '🧑‍💼',
+  profile_sync: '✅',
+  payment_verification: '🛡️',
 };
 
-const LANGS = [['en', 'EN'], ['hi', 'हिंदी'], ['mr', 'मराठी']];
+const LANGS = [
+  ['en', 'EN'],
+  ['hi', 'हिंदी'],
+  ['hinglish', 'Hinglish'],
+  ['mr', 'मराठी'],
+  ['ta', 'தமிழ்'],
+  ['te', 'తెలుగు'],
+  ['bn', 'বাংলা'],
+  ['gu', 'ગુજરાતી'],
+  ['kn', 'ಕನ್ನಡ'],
+  ['ml', 'മലയാളം'],
+  ['pa', 'ਪੰਜਾਬੀ'],
+];
 
 const cardFields = {
   settlement: [['Amount', 'amount'], ['Credited to', 'bank'], ['UTR', 'utr'], ['IFSC', 'ifsc']],
@@ -64,11 +92,19 @@ const cardFields = {
   soundbox: [['Device', 'device'], ['Battery', 'battery'], ['Network', 'network'], ['Diagnostics', 'volume']],
   human_desk: [['Amount in review', 'amount'], ['Desk officer', 'officer'], ['Ticket', 'ticketId'], ['Next action', 'action']],
   profile_sync: [['Device', 'device']],
+  payment_verification: [
+    ['Amount Claimed', 'amount'],
+    ['Reference (UTR)', 'utr'],
+    ['Risk Level', 'risk'],
+    ['Recommended Action', 'action'],
+    ['System Verification', 'explanation'],
+  ],
 };
 
 const cardTone = {
   human_desk: 'border-rose-200 bg-rose-50/70',
   loan: 'border-amber-200 bg-amber-50/70',
+  payment_verification: 'border-sky-200 bg-sky-50/70',
   default: 'border-slate-200 bg-slate-50',
 };
 
@@ -84,13 +120,28 @@ const personalise = (text, name) => text.replace('रमेश', name).replace('
 function DetailCard({ card }) {
   if (!card) return null;
   const fields = (cardFields[card.type] || []).filter(([, k]) => card[k] != null && card[k] !== '');
-  const tone = cardTone[card.type] || cardTone.default;
+  
+  let tone = cardTone[card.type] || cardTone.default;
+  if (card.type === 'payment_verification') {
+    if (card.status === 'VERIFIED_RECEIVED') {
+      tone = 'border-emerald-300 bg-emerald-50/80';
+    } else if (card.status === 'PENDING') {
+      tone = 'border-amber-300 bg-amber-50/80';
+    } else {
+      tone = 'border-rose-300 bg-rose-50/80';
+    }
+  }
 
   return (
     <section className={`mt-2 w-full overflow-hidden rounded-2xl border shadow-sm ${tone}`}>
       <div className="flex items-start justify-between gap-3 px-4 py-3">
         <div className="min-w-0">
-          <p className="flex items-center gap-2 text-sm font-semibold text-slate-900"><span aria-hidden="true" className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-base shadow-sm ring-1 ring-black/5">{CARD_ICONS[card.type] || '📄'}</span>{card.title || 'Support details'}</p>
+          <p className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <span aria-hidden="true" className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-base shadow-sm ring-1 ring-black/5">
+              {CARD_ICONS[card.type] || '📄'}
+            </span>
+            {card.title || 'Support details'}
+          </p>
           {card.type === 'profile_sync' && card.device && (
             <p className="mt-0.5 text-xs text-slate-500">{card.device}</p>
           )}
@@ -146,7 +197,7 @@ function Avatar({ saathi, initial }) {
   );
 }
 
-function MessageBubble({ message, merchantName, merchantInitial, animate }) {
+function MessageBubble({ message, merchantName, merchantInitial, animate, lang, rate, voiceURI, onSpeedChange }) {
   const isSaathi = message.sender === 'saathi';
   return (
     <motion.div
@@ -171,6 +222,15 @@ function MessageBubble({ message, merchantName, merchantInitial, animate }) {
           <p className="whitespace-pre-line break-words">{message.text}</p>
         </div>
         {message.card && <DetailCard card={message.card} />}
+        {isSaathi && message.text && (
+          <VoicePlaybackBar
+            text={message.text}
+            lang={lang}
+            rate={rate}
+            voiceURI={voiceURI}
+            onSpeedChange={onSpeedChange}
+          />
+        )}
       </div>
     </motion.div>
   );
@@ -275,12 +335,21 @@ function ReceiptPanel({ currentCase, merchant, open, onToggle, receiptEndRef, re
 /* ---------- page ---------- */
 
 export const DemoChatPage = () => {
-  const { currentMerchant } = useAuth();
+  const { currentMerchant, updateMerchantVoiceProfile } = useAuth();
   const reduceMotion = useReducedMotion();
   const firstName = currentMerchant?.name?.split(' ')[0] || 'Ramesh';
   const merchantInitial = (currentMerchant?.name?.charAt(0) || 'M').toUpperCase();
 
-  const [lang, setLang] = useState('en');
+  const [voiceSettings, setVoiceSettings] = useState({
+    preferredLanguage: currentMerchant?.preferredLanguage || 'en',
+    voiceResponseEnabled: currentMerchant?.voiceResponseEnabled ?? true,
+    speechRate: currentMerchant?.speechRate || 1.0,
+    preferredVoiceIdentifier: currentMerchant?.preferredVoiceIdentifier || '',
+  });
+
+  const [lang, setLang] = useState(currentMerchant?.preferredLanguage || 'en');
+  const [isVoiceSettingsOpen, setIsVoiceSettingsOpen] = useState(false);
+  const [isFraudModalOpen, setIsFraudModalOpen] = useState(false);
   const [currentTimeStr, setCurrentTimeStr] = useState(clock);
   const [messages, setMessages] = useState([]);
   const [inputVal, setInputVal] = useState('');
@@ -302,6 +371,18 @@ export const DemoChatPage = () => {
   const busy = isTyping || isExecutingTools;
 
   useEffect(() => {
+    if (currentMerchant?.preferredLanguage) {
+      setLang(currentMerchant.preferredLanguage);
+      setVoiceSettings({
+        preferredLanguage: currentMerchant.preferredLanguage || 'en',
+        voiceResponseEnabled: currentMerchant.voiceResponseEnabled ?? true,
+        speechRate: currentMerchant.speechRate || 1.0,
+        preferredVoiceIdentifier: currentMerchant.preferredVoiceIdentifier || '',
+      });
+    }
+  }, [currentMerchant]);
+
+  useEffect(() => {
     const id = setInterval(() => setCurrentTimeStr(clock()), 15000);
     return () => clearInterval(id);
   }, []);
@@ -312,7 +393,8 @@ export const DemoChatPage = () => {
     const rec = new SR();
     rec.continuous = false;
     rec.interimResults = true;
-    rec.lang = lang === 'hi' ? 'hi-IN' : lang === 'mr' ? 'mr-IN' : 'en-IN';
+    const langCfg = SUPPORTED_LANGUAGES.find((l) => l.code === lang);
+    rec.lang = langCfg?.bcp47?.[0] || 'en-IN';
     rec.onstart = () => { setIsListening(true); setRecordingDuration(0); };
     rec.onresult = (e) => {
       let t = '';
@@ -392,6 +474,16 @@ export const DemoChatPage = () => {
       if (soundEnabled) playPaytmChime();
       setMessages((prev) => [...prev, { id: `saa-${Date.now()}`, sender: 'saathi', time: getNowTimeAmPm(), text: scenario.reply, card: scenario.card || customCard }]);
       setCurrentCase((prev) => ({ ...prev, statusBadge: scenario.statusBadge, statusType: scenario.statusType }));
+
+      // Automatically speak the response if voice responses are enabled (Section 15.7)
+      if (voiceSettings.voiceResponseEnabled) {
+        voiceService.speak({
+          text: scenario.reply,
+          lang: lang,
+          rate: voiceSettings.speechRate,
+          voiceURI: voiceSettings.preferredVoiceIdentifier,
+        });
+      }
     } catch (error) {
       console.error(error);
       setMessages((prev) => [...prev, { id: `err-${Date.now()}`, sender: 'saathi', time: getNowTimeAmPm(), text: 'Something went wrong on our side. Please send your message again.' }]);
@@ -407,7 +499,20 @@ export const DemoChatPage = () => {
     setIsListening(true);
     setInputVal('');
     recordingTimeoutRef.current = setTimeout(() => {
-      const transcript = lang === 'hi' ? 'मेरा सुबह का ₹320 नहीं आया' : lang === 'mr' ? 'माझे पैसे अजून आले नाहीत' : 'Mera paisa nahi aaya';
+      const phrases = {
+        en: 'Mera paisa nahi aaya',
+        hi: 'मेरा सुबह का ₹8,450 नहीं आया',
+        hinglish: 'Mera subah ka payout nahi aaya',
+        mr: 'माझे पैसे अजून जमा झाले नाहीत',
+        ta: 'எனது பணம் இன்னும் வரவில்லை',
+        te: 'నా చెల్లింపు ఇంకా రాలేదు',
+        bn: 'আমার পেমেন্ট এখনও আসেনি',
+        gu: 'મારા પૈસા હજુ આવ્યા નથી',
+        kn: 'ನನ್ನ ಹಣ ಇನ್ನೂ ಬಂದಿಲ್ಲ',
+        ml: 'എന്റെ പണം ഇതുവരെ വന്നിട്ടില്ല',
+        pa: 'ਮੇਰਾ ਪੈਸਾ ਅਜੇ ਤੱਕ ਨਹੀਂ ਆਇਆ',
+      };
+      const transcript = phrases[lang] || phrases.en;
       setInputVal(transcript);
       setIsListening(false);
       recordingTimeoutRef.current = setTimeout(() => handleSendMessage(transcript), 350);
@@ -448,17 +553,49 @@ export const DemoChatPage = () => {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsFraudModalOpen(true)}
+                className={`${toolbarBtn} !border-emerald-300/40 !bg-emerald-500/20 !text-emerald-100 backdrop-blur hover:!bg-emerald-500/30 flex items-center gap-1.5`}
+                title="Verify customer screenshot or UTR reference against internal ledger"
+              >
+                <span>🛡️</span>
+                <span className="font-semibold">Verify Payment</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsVoiceSettingsOpen(true)}
+                className={`${toolbarBtn} !border-white/20 !bg-white/10 !text-white backdrop-blur hover:!bg-white/20 flex items-center gap-1.5`}
+                title="Voice & Language Settings"
+              >
+                <span>🎙️</span>
+                <span className="hidden sm:inline">Voice</span>
+                <span className="rounded bg-[#ffcf40] px-1.5 py-0.5 text-[10px] font-black text-[#0b1b3f] uppercase">
+                  {lang}
+                </span>
+              </button>
+
               <button type="button" aria-pressed={soundEnabled} onClick={() => { setSoundEnabled((v) => !v); if (!soundEnabled) playPaytmChime(); }} className={`${toolbarBtn} !border-white/20 !bg-white/10 !text-white backdrop-blur hover:!bg-white/20`}>
                 {soundEnabled ? '🔔 Sound on' : '🔕 Sound off'}
               </button>
               <button type="button" onClick={() => playPaytmChime()} className={`${toolbarBtn} !border-white/20 !bg-white/10 !text-white backdrop-blur hover:!bg-white/20`}>Test chime</button>
-              <div role="group" aria-label="Language" className="flex rounded-xl bg-white/10 p-0.5 ring-1 ring-white/20 backdrop-blur">
-                {LANGS.map(([code, label]) => (
+              
+              <div role="group" aria-label="Language" className="hidden lg:flex rounded-xl bg-white/10 p-0.5 ring-1 ring-white/20 backdrop-blur">
+                {LANGS.slice(0, 4).map(([code, label]) => (
                   <button key={code} type="button" aria-pressed={lang === code} onClick={() => setLang(code)}
-                    className={`rounded-[10px] px-3 py-1.5 text-xs font-semibold transition ${focusRing} ${lang === code ? 'bg-[#ffcf40] text-[#0b1b3f] shadow' : 'text-white/80 hover:bg-white/10'}`}>
+                    className={`rounded-[10px] px-2.5 py-1 text-xs font-semibold transition ${focusRing} ${lang === code ? 'bg-[#ffcf40] text-[#0b1b3f] shadow' : 'text-white/80 hover:bg-white/10'}`}>
                     {label}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => setIsVoiceSettingsOpen(true)}
+                  className="rounded-[10px] px-2 py-1 text-xs font-semibold text-white/70 hover:bg-white/10 transition"
+                  title="More regional languages"
+                >
+                  More...
+                </button>
               </div>
             </div>
           </div>
@@ -521,7 +658,20 @@ export const DemoChatPage = () => {
                 </div>
               )}
               {messages.map((m, i) => (
-                <MessageBubble key={m.id} message={m} merchantName={firstName === 'Ramesh' && !currentMerchant?.name ? 'You' : firstName} merchantInitial={merchantInitial} animate={i > 0 && !reduceMotion} />
+                <MessageBubble
+                  key={m.id}
+                  message={m}
+                  merchantName={firstName === 'Ramesh' && !currentMerchant?.name ? 'You' : firstName}
+                  merchantInitial={merchantInitial}
+                  animate={i > 0 && !reduceMotion}
+                  lang={lang}
+                  rate={voiceSettings.speechRate}
+                  voiceURI={voiceSettings.preferredVoiceIdentifier}
+                  onSpeedChange={(newSpeed) => {
+                    setVoiceSettings((prev) => ({ ...prev, speechRate: newSpeed }));
+                    updateMerchantVoiceProfile({ speechRate: newSpeed });
+                  }}
+                />
               ))}
               {isTyping && <TypingIndicator />}
               <div ref={messagesEndRef} />
@@ -639,6 +789,29 @@ export const DemoChatPage = () => {
           />
         </div>
       </div>
+
+      {/* Voice & Language Settings Modal (Sections 15.2 - 15.9) */}
+      <VoiceSettingsModal
+        isOpen={isVoiceSettingsOpen}
+        onClose={() => setIsVoiceSettingsOpen(false)}
+        merchantId={currentMerchant?.id === 'merchant-priya' ? 2 : currentMerchant?.id === 'merchant-vikram' ? 3 : 1}
+        currentSettings={voiceSettings}
+        onSaveSettings={(newSettings) => {
+          setVoiceSettings(newSettings);
+          if (newSettings.preferredLanguage) {
+            setLang(newSettings.preferredLanguage);
+          }
+          updateMerchantVoiceProfile(newSettings);
+        }}
+      />
+
+      {/* Fraud & Payment Claim Verification Modal (Phase 1) */}
+      <FraudModal
+        isOpen={isFraudModalOpen}
+        onClose={() => setIsFraudModalOpen(false)}
+        merchantId={currentMerchant?.id === 'merchant-priya' ? 2 : currentMerchant?.id === 'merchant-vikram' ? 3 : 1}
+        onSendToChat={(msg) => handleSendMessage(msg)}
+      />
     </main>
   );
 };

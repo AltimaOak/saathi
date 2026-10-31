@@ -74,12 +74,61 @@ engine = create_db_engine()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+def upgrade_schema(target_engine):
+    """Safely apply backward-compatible column additions to existing tables."""
+    from sqlalchemy import text, inspect
+    try:
+        insp = inspect(target_engine)
+        tables = insp.get_table_names()
+        
+        with target_engine.connect() as conn:
+            is_sqlite = target_engine.dialect.name == "sqlite"
+            
+            # 1. Update transactions table columns
+            if "transactions" in tables:
+                cols = [c["name"] for c in insp.get_columns("transactions")]
+                new_cols = [
+                    ("utr", "VARCHAR(64)"),
+                    ("order_ref", "VARCHAR(64)"),
+                    ("payer_vpa", "VARCHAR(128)"),
+                    ("last_synced_at", "TIMESTAMP" if is_sqlite else "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
+                ]
+                for col_name, col_type in new_cols:
+                    if col_name not in cols:
+                        stmt = f"ALTER TABLE transactions ADD COLUMN {col_name} {col_type};"
+                        try:
+                            conn.execute(text(stmt))
+                            conn.commit()
+                        except Exception as ce:
+                            print(f"Notice adding column {col_name} to transactions: {ce}")
+
+            # 2. Update merchants table columns
+            if "merchants" in tables:
+                cols = [c["name"] for c in insp.get_columns("merchants")]
+                new_cols = [
+                    ("preferred_language", "VARCHAR(16) DEFAULT 'en'"),
+                    ("voice_response_enabled", "BOOLEAN DEFAULT TRUE" if not is_sqlite else "INTEGER DEFAULT 1"),
+                    ("speech_rate", "FLOAT DEFAULT 1.0"),
+                    ("preferred_voice_identifier", "VARCHAR(128) DEFAULT ''"),
+                ]
+                for col_name, col_type in new_cols:
+                    if col_name not in cols:
+                        stmt = f"ALTER TABLE merchants ADD COLUMN {col_name} {col_type};"
+                        try:
+                            conn.execute(text(stmt))
+                            conn.commit()
+                        except Exception as ce:
+                            print(f"Notice adding column {col_name} to merchants: {ce}")
+    except Exception as e:
+        print(f"Notice during schema upgrade check: {e}")
+
 def fallback_to_sqlite():
     global engine, SessionLocal
     sqlite_url = get_sqlite_path()
     print(f"Failing over database engine to SQLite ({sqlite_url})...")
     engine = create_engine(sqlite_url, connect_args={"check_same_thread": False})
     SessionLocal.configure(bind=engine)
+    upgrade_schema(engine)
     return engine
 
 def get_db():

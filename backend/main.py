@@ -2,7 +2,7 @@ import os
 import json
 from datetime import datetime, timedelta
 from typing import Optional, List
-from fastapi import FastAPI, Depends, HTTPException, Query, Body, Request
+from fastapi import FastAPI, Depends, HTTPException, Query, Body, Request, UploadFile, File, Form
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -26,6 +26,9 @@ from models import (
     Ticket,
     ActionLog,
     Session as DBSession,
+    FraudCase,
+    FraudEvidence,
+    PaymentClaim,
 )
 from seed import seed
 from agent import stream_chat, get_model_name
@@ -76,7 +79,9 @@ def init_db_and_seed():
         # Test connection
         with engine.connect() as conn:
             pass
+        from database import upgrade_schema
         Base.metadata.create_all(bind=engine)
+        upgrade_schema(engine)
         with SessionLocal() as db:
             m_count = db.query(Merchant).count()
             if m_count == 0:
@@ -84,9 +89,10 @@ def init_db_and_seed():
                 seed(db)
     except Exception as e:
         print(f"Primary database connection notice ({e}). Failing over to SQLite...")
-        from database import fallback_to_sqlite
+        from database import fallback_to_sqlite, upgrade_schema
         engine = fallback_to_sqlite()
         Base.metadata.create_all(bind=engine)
+        upgrade_schema(engine)
         with SessionLocal() as db:
             try:
                 m_count = db.query(Merchant).count()
@@ -126,6 +132,12 @@ class RegisterRequest(BaseModel):
 class StageUpdateRequest(BaseModel):
     stage: str
 
+class VoiceSettingsUpdate(BaseModel):
+    preferred_language: Optional[str] = "en"
+    voice_response_enabled: Optional[bool] = True
+    speech_rate: Optional[float] = 1.0
+    preferred_voice_identifier: Optional[str] = ""
+
 # Endpoints
 
 @app.get("/")
@@ -156,6 +168,16 @@ def health_check(db: Session = Depends(get_db)):
 
 @app.post("/api/chat/stream")
 async def chat_stream_endpoint(req: ChatStreamRequest):
+    chosen_lang = req.language or "en"
+    if req.merchant_id and (not req.language or req.language == "en"):
+        try:
+            with next(get_db()) as db:
+                m = db.query(Merchant).filter(Merchant.id == req.merchant_id).first()
+                if m and m.preferred_language:
+                    chosen_lang = m.preferred_language
+        except Exception:
+            pass
+
     return StreamingResponse(
         stream_chat(
             session_id=req.session_id,
@@ -163,7 +185,7 @@ async def chat_stream_endpoint(req: ChatStreamRequest):
             merchant_id=req.merchant_id,
             lead_id=req.lead_id,
             mode=req.mode or "support",
-            language=req.language or "en",
+            language=chosen_lang,
         ),
         media_type="text/event-stream",
         headers={
@@ -187,6 +209,10 @@ def auth_login(req: LoginRequest, db: Session = Depends(get_db)):
         "shop_name": merchant.shop_name,
         "city": merchant.city,
         "language": merchant.language,
+        "preferred_language": merchant.preferred_language or merchant.language or "en",
+        "voice_response_enabled": bool(merchant.voice_response_enabled) if merchant.voice_response_enabled is not None else True,
+        "speech_rate": float(merchant.speech_rate or 1.0),
+        "preferred_voice_identifier": merchant.preferred_voice_identifier or "",
         "phone": merchant.phone,
         "kyc_status": merchant.kyc_status,
         "bank_name_on_kyc": merchant.bank_name_on_kyc,
@@ -201,6 +227,10 @@ def auth_register(req: RegisterRequest, db: Session = Depends(get_db)):
         shop_name=req.shop_name,
         city=req.city,
         language=req.language or "en",
+        preferred_language=req.language or "en",
+        voice_response_enabled=True,
+        speech_rate=1.0,
+        preferred_voice_identifier="",
         phone=req.phone or "+91 98000 00000",
         kyc_status="verified",
         bank_name_on_kyc="State Bank of India",
@@ -229,6 +259,10 @@ def auth_register(req: RegisterRequest, db: Session = Depends(get_db)):
         "shop_name": merchant.shop_name,
         "city": merchant.city,
         "language": merchant.language,
+        "preferred_language": merchant.preferred_language or "en",
+        "voice_response_enabled": bool(merchant.voice_response_enabled),
+        "speech_rate": float(merchant.speech_rate or 1.0),
+        "preferred_voice_identifier": merchant.preferred_voice_identifier or "",
         "phone": merchant.phone,
         "kyc_status": merchant.kyc_status,
         "bank_name_on_kyc": merchant.bank_name_on_kyc,
@@ -246,6 +280,10 @@ def list_merchants(db: Session = Depends(get_db)):
             "shop_name": m.shop_name,
             "city": m.city,
             "language": m.language,
+            "preferred_language": m.preferred_language or m.language or "en",
+            "voice_response_enabled": bool(m.voice_response_enabled) if m.voice_response_enabled is not None else True,
+            "speech_rate": float(m.speech_rate or 1.0),
+            "preferred_voice_identifier": m.preferred_voice_identifier or "",
             "phone": m.phone,
             "kyc_status": m.kyc_status,
             "bank_name_on_kyc": m.bank_name_on_kyc,
@@ -254,6 +292,49 @@ def list_merchants(db: Session = Depends(get_db)):
         }
         for m in merchants
     ]
+
+@app.get("/api/merchants/{merchant_id}/voice-settings")
+def get_merchant_voice_settings(merchant_id: int, db: Session = Depends(get_db)):
+    merchant = db.query(Merchant).filter(Merchant.id == merchant_id).first()
+    if not merchant:
+        raise HTTPException(status_code=404, detail="Merchant not found")
+    return {
+        "preferred_language": merchant.preferred_language or merchant.language or "en",
+        "voice_response_enabled": bool(merchant.voice_response_enabled) if merchant.voice_response_enabled is not None else True,
+        "speech_rate": float(merchant.speech_rate or 1.0),
+        "preferred_voice_identifier": merchant.preferred_voice_identifier or "",
+    }
+
+@app.put("/api/merchants/{merchant_id}/voice-settings")
+def update_merchant_voice_settings(merchant_id: int, req: VoiceSettingsUpdate, db: Session = Depends(get_db)):
+    merchant = db.query(Merchant).filter(Merchant.id == merchant_id).first()
+    if not merchant:
+        raise HTTPException(status_code=404, detail="Merchant not found")
+    
+    valid_langs = ["en", "hi", "hinglish", "mr", "ta", "te", "bn", "gu", "kn", "ml", "pa"]
+    if req.preferred_language and req.preferred_language.lower() in valid_langs:
+        merchant.preferred_language = req.preferred_language.lower()
+        merchant.language = req.preferred_language.lower()
+        
+    if req.voice_response_enabled is not None:
+        merchant.voice_response_enabled = req.voice_response_enabled
+        
+    if req.speech_rate is not None:
+        merchant.speech_rate = max(0.5, min(2.0, float(req.speech_rate)))
+        
+    if req.preferred_voice_identifier is not None:
+        merchant.preferred_voice_identifier = str(req.preferred_voice_identifier)[:128]
+        
+    db.commit()
+    db.refresh(merchant)
+    
+    return {
+        "status": "ok",
+        "preferred_language": merchant.preferred_language,
+        "voice_response_enabled": merchant.voice_response_enabled,
+        "speech_rate": merchant.speech_rate,
+        "preferred_voice_identifier": merchant.preferred_voice_identifier,
+    }
 
 @app.get("/api/merchants/{merchant_id}/overview")
 def merchant_overview(merchant_id: int, db: Session = Depends(get_db)):
@@ -555,3 +636,187 @@ def update_lead_stage(lead_id: int, req: StageUpdateRequest, db: Session = Depen
 def reset_database(db: Session = Depends(get_db)):
     seed(db)
     return {"status": "ok", "message": "Database reset to initial demo state"}
+
+# ---------------------------------------------------------------------------
+# Fraud & Payment Verification Endpoints (Phase 1)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/fraud/verify-payment")
+async def verify_payment_endpoint(
+    file: Optional[UploadFile] = File(None),
+    claim_utr: Optional[str] = Form(None),
+    claim_amount: Optional[float] = Form(None),
+    merchant_id: Optional[int] = Form(1),
+    simulated_stale: Optional[bool] = Form(False),
+    db: Session = Depends(get_db),
+):
+    """
+    Ingest receipt screenshot, cropped slip, or manual UTR claim.
+    Validates file hardening (magic bytes, max 5MB), extracts candidate fields via
+    Gemini Multimodal Vision, and checks against authoritative internal ledger.
+    """
+    from document_extractor import validate_file_content, sanitize_and_extract_metadata, extract_receipt_fields
+    from fraud_engine import evaluate_payment_claim
+
+    m_id = merchant_id or 1
+    merchant = db.query(Merchant).filter(Merchant.id == m_id).first()
+    if not merchant:
+        raise HTTPException(status_code=404, detail="Merchant not found")
+
+    utr_candidate = claim_utr
+    amt_candidate = claim_amount
+    payer_candidate = None
+    security_flags = []
+    file_bytes = b""
+    file_mime = "application/octet-stream"
+
+    if file:
+        file_bytes = await file.read()
+        is_valid, detected_mime, err_msg = validate_file_content(file_bytes)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=err_msg)
+        file_mime = detected_mime
+
+        # Re-encode and strip EXIF
+        sanitized_bytes, sec_flags = sanitize_and_extract_metadata(file_bytes, file_mime)
+        security_flags.extend(sec_flags)
+
+        # Multimodal Vision / Regex Extraction
+        extracted_data, ext_flags = extract_receipt_fields(sanitized_bytes, file_mime)
+        security_flags.extend(ext_flags)
+
+        if not utr_candidate and extracted_data.get("utr"):
+            utr_candidate = extracted_data["utr"]
+        if amt_candidate is None and extracted_data.get("amount"):
+            amt_candidate = extracted_data["amount"]
+        if extracted_data.get("payer_name"):
+            payer_candidate = extracted_data["payer_name"]
+
+    # Evaluate claim deterministically
+    evaluation = evaluate_payment_claim(
+        db=db,
+        merchant_id=m_id,
+        claim_utr=utr_candidate,
+        claim_amount=amt_candidate,
+        claim_payer=payer_candidate,
+        security_flags=list(set(security_flags)),
+        simulated_stale=simulated_stale,
+        channel="document_upload" if file else "manual_entry",
+    )
+
+    # Persist evidence record if a file was uploaded
+    if file and file_bytes:
+        import hashlib
+        file_hash = hashlib.sha256(file_bytes).hexdigest()
+        now = now_ist()
+        evidence = FraudEvidence(
+            case_id=evaluation["case_id"],
+            file_hash=file_hash,
+            sanitized_path=f"/storage/evidence/{file_hash[:16]}.bin",
+            mime_type=file_mime,
+            file_size_bytes=len(file_bytes),
+            extracted_json=json.dumps({"utr": utr_candidate, "amount": amt_candidate, "payer": payer_candidate}),
+            signals_fired=json.dumps(evaluation.get("signals_fired", [])),
+            checks_performed=json.dumps(evaluation.get("checks_performed", [])),
+            checks_unverified=json.dumps(evaluation.get("checks_unverified", [])),
+            security_flags=json.dumps(evaluation.get("security_flags", [])),
+            retention_expires_at=now + timedelta(days=90),
+            created_at=now,
+        )
+        db.add(evidence)
+        db.commit()
+
+    return evaluation
+
+@app.get("/api/fraud/cases")
+def list_fraud_cases(
+    merchant_id: Optional[int] = Query(None),
+    limit: int = Query(50),
+    db: Session = Depends(get_db),
+):
+    """List assessed fraud and payment claim verification cases."""
+    query = db.query(FraudCase)
+    if merchant_id:
+        query = query.filter(FraudCase.merchant_id == merchant_id)
+    cases = query.order_by(FraudCase.created_at.desc()).limit(limit).all()
+
+    return [
+        {
+            "case_ref": c.case_ref,
+            "merchant_id": c.merchant_id,
+            "channel": c.channel,
+            "verdict": c.verdict,
+            "risk_level": c.risk_level,
+            "rule_version": c.rule_version,
+            "claim_amount": c.claim_amount,
+            "claim_utr": c.claim_utr,
+            "claim_payer": c.claim_payer,
+            "matched_transaction_id": c.matched_transaction_id,
+            "explanation": c.explanation_template,
+            "recommended_action": c.recommended_action,
+            "status": c.status,
+            "created_at": c.created_at.strftime("%Y-%m-%d %H:%M:%S IST"),
+        }
+        for c in cases
+    ]
+
+@app.get("/api/fraud/cases/{case_ref}")
+def get_fraud_case_detail(
+    case_ref: str,
+    merchant_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """Retrieve full audit detail for a specific fraud verification case with merchant isolation."""
+    case = db.query(FraudCase).filter(FraudCase.case_ref == case_ref).first()
+    if not case:
+        raise HTTPException(status_code=404, detail="Fraud case reference not found")
+
+    # Merchant ownership check: forbid cross-merchant access
+    if merchant_id and case.merchant_id != merchant_id:
+        raise HTTPException(status_code=403, detail="Forbidden: You cannot access verification cases of another merchant")
+
+    matched_txn = None
+    if case.matched_transaction_id:
+        t = db.query(Transaction).filter(Transaction.id == case.matched_transaction_id).first()
+        if t:
+            matched_txn = {
+                "id": t.id,
+                "amount": t.amount,
+                "payer": t.payer,
+                "mode": t.mode,
+                "status": t.status,
+                "created_at": t.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+
+    evidence_data = None
+    if case.evidence:
+        ev = case.evidence
+        evidence_data = {
+            "file_hash": ev.file_hash,
+            "mime_type": ev.mime_type,
+            "file_size_bytes": ev.file_size_bytes,
+            "extracted_json": json.loads(ev.extracted_json or "{}"),
+            "signals_fired": json.loads(ev.signals_fired or "[]"),
+            "checks_performed": json.loads(ev.checks_performed or "[]"),
+            "checks_unverified": json.loads(ev.checks_unverified or "[]"),
+            "security_flags": json.loads(ev.security_flags or "[]"),
+            "retention_expires_at": ev.retention_expires_at.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+
+    return {
+        "case_ref": case.case_ref,
+        "merchant_id": case.merchant_id,
+        "channel": case.channel,
+        "verdict": case.verdict,
+        "risk_level": case.risk_level,
+        "rule_version": case.rule_version,
+        "claim_amount": case.claim_amount,
+        "claim_utr": case.claim_utr,
+        "claim_payer": case.claim_payer,
+        "matched_record": matched_txn,
+        "evidence": evidence_data,
+        "explanation": case.explanation_template,
+        "recommended_action": case.recommended_action,
+        "status": case.status,
+        "created_at": case.created_at.strftime("%Y-%m-%d %H:%M:%S IST"),
+    }

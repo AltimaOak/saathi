@@ -459,6 +459,25 @@ def tool_create_ticket(db: Session, summary: str, priority: str = "normal", merc
         "_log": f"Created {ticket.priority} priority ticket #{ticket.id}: '{summary}'",
     }
 
+def tool_verify_payment_claim(db: Session, utr: str, amount: float = None, merchant_id: int = None):
+    """
+    Read-only payment claim lookup against internal ledger.
+    Authorization: merchant_id is strictly bound to session; model cannot override.
+    """
+    from fraud_engine import evaluate_payment_claim
+    if not merchant_id:
+        return {"error": "Missing authenticated merchant session"}
+
+    result = evaluate_payment_claim(
+        db=db,
+        merchant_id=merchant_id,
+        claim_utr=utr,
+        claim_amount=amount,
+        channel="chat_agent",
+    )
+    result["_log"] = f"Verified claim for UTR '{utr}': {result['verdict_label']} (Risk: {result['risk_level']})"
+    return result
+
 def tool_get_lead(db: Session, lead_id: int):
     lead = db.query(Lead).filter(Lead.id == lead_id).first()
     if not lead:
@@ -573,6 +592,23 @@ def make_card(tool_name: str, result: dict, merchant=None, db=None):
             "status": "HUMAN HAND-OFF ENGAGED",
             "time": now_str,
         }
+    elif tool_name == "verify_payment_claim":
+        verdict = result.get("verdict", "UNABLE_TO_VERIFY")
+        risk = result.get("risk_level", "MEDIUM")
+        claimed = result.get("claimed", {})
+        matched = result.get("matched_record") or {}
+        amt = claimed.get("amount") or matched.get("amount", 0)
+        return {
+            "type": "payment_verification",
+            "title": f"Payment: {result.get('verdict_label', verdict)}",
+            "amount": f"₹{amt:,.2f}" if amt else "Amount Unspecified",
+            "utr": claimed.get("utr") or "N/A",
+            "status": verdict,
+            "risk": f"{risk} RISK",
+            "explanation": result.get("explanation", ""),
+            "action": result.get("recommended_next_step", ""),
+            "time": now_str,
+        }
     return None
 
 TOOL_REGISTRY = {
@@ -593,6 +629,7 @@ TOOL_REGISTRY = {
     "get_lead": tool_get_lead,
     "send_offer": tool_send_offer,
     "book_followup": tool_book_followup,
+    "verify_payment_claim": tool_verify_payment_claim,
 }
 
 def run_tool(db: Session, name: str, args: dict, merchant_id: int = None):
@@ -605,15 +642,14 @@ def run_tool(db: Session, name: str, args: dict, merchant_id: int = None):
         return {"error": f"Unknown tool: {name}"}, f"Tool {name} not found"
 
     try:
-        # inject merchant_id into args if appropriate and missing
+        # Strictly enforce merchant_id from authenticated session context
         call_args = dict(args)
-        if name in ["get_merchant", "get_settlement_status", "verify_bank_ifsc", "retrigger_kyc",
-                    "get_recent_transactions", "get_refund_status", "diagnose_soundbox",
-                    "remote_fix_soundbox", "check_loan_eligibility", "presanction_loan"]:
-            if "merchant_id" not in call_args and merchant_id is not None:
+        if merchant_id is not None:
+            if name in ["get_merchant", "get_settlement_status", "verify_bank_ifsc", "retrigger_kyc",
+                        "get_recent_transactions", "get_refund_status", "diagnose_soundbox",
+                        "remote_fix_soundbox", "check_loan_eligibility", "presanction_loan",
+                        "create_ticket", "verify_payment_claim"]:
                 call_args["merchant_id"] = merchant_id
-        if name == "create_ticket" and "merchant_id" not in call_args and merchant_id is not None:
-            call_args["merchant_id"] = merchant_id
 
         result = func(db, **call_args)
     except Exception as e:
@@ -840,6 +876,18 @@ if types is not None:
                 "datetime_iso": types.Schema(type=types.Type.STRING, description="Followup date and time (e.g. 'Tomorrow 11:30 AM')"),
             },
             required=["lead_id", "datetime_iso"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name="verify_payment_claim",
+        description="Verify a customer payment claim or screenshot UTR against the merchant's live settlement ledger to confirm if money was genuinely received.",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "utr": types.Schema(type=types.Type.STRING, description="The 12-digit bank UTR, UPI reference, or RRN from the customer receipt"),
+                "amount": types.Schema(type=types.Type.NUMBER, description="The claimed transaction amount in INR"),
+            },
+            required=["utr"],
         ),
     ),
 ]

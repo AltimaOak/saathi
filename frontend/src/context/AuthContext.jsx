@@ -21,6 +21,10 @@ export const PRESET_MERCHANTS = [
     settlementCycle: 'Next-Day 7:00 AM',
     pendingIssue: 'Settlement delayed (IFSC update pending)',
     loanEligibility: '₹2,50,000 Pre-approved',
+    preferredLanguage: 'hi',
+    voiceResponseEnabled: true,
+    speechRate: 1.0,
+    preferredVoiceIdentifier: '',
     recentTransactions: [
       { id: 'TXN-901', time: '17:10', amount: '₹320', mode: 'Paytm UPI QR', customer: 'Sanjay P.', status: 'Success' },
       { id: 'TXN-902', time: '16:45', amount: '₹140', mode: 'PhonePe UPI', customer: 'Deepak M.', status: 'Success' },
@@ -56,6 +60,10 @@ export const PRESET_MERCHANTS = [
     settlementCycle: 'Instant IMPS (Same-day)',
     pendingIssue: 'Customer refund pending (₹1,450)',
     loanEligibility: '₹5,00,000 Working Capital Limit',
+    preferredLanguage: 'en',
+    voiceResponseEnabled: true,
+    speechRate: 1.0,
+    preferredVoiceIdentifier: '',
     recentTransactions: [
       { id: 'TXN-801', time: '17:12', amount: '₹1,240', mode: 'Paytm UPI QR', customer: 'Ananya S.', status: 'Success' },
       { id: 'TXN-802', time: '16:50', amount: '₹850', mode: 'CRED UPI', customer: 'Vikrant R.', status: 'Success' },
@@ -91,6 +99,10 @@ export const PRESET_MERCHANTS = [
     settlementCycle: 'Daily Twice (12 PM & 6 PM)',
     pendingIssue: 'High-value festival settlement hold (> ₹45,000)',
     loanEligibility: '₹10,00,000 Festive SME Credit',
+    preferredLanguage: 'hi',
+    voiceResponseEnabled: true,
+    speechRate: 1.0,
+    preferredVoiceIdentifier: '',
     recentTransactions: [
       { id: 'TXN-701', time: '17:14', amount: '₹4,500', mode: 'Paytm Card Machine', customer: 'Ashok B.', status: 'Success' },
       { id: 'TXN-702', time: '16:55', amount: '₹2,100', mode: 'Paytm Soundbox QR', customer: 'Suman G.', status: 'Success' },
@@ -186,6 +198,26 @@ export const AuthProvider = ({ children }) => {
     return newMerchant;
   };
 
+  // Update voice & language profile preferences
+  const updateMerchantVoiceProfile = (settings) => {
+    if (!currentMerchant) return;
+    const updatedMerchant = {
+      ...currentMerchant,
+      preferredLanguage: settings.preferredLanguage ?? currentMerchant.preferredLanguage ?? 'en',
+      voiceResponseEnabled: settings.voiceResponseEnabled ?? currentMerchant.voiceResponseEnabled ?? true,
+      speechRate: settings.speechRate ?? currentMerchant.speechRate ?? 1.0,
+      preferredVoiceIdentifier: settings.preferredVoiceIdentifier ?? currentMerchant.preferredVoiceIdentifier ?? '',
+    };
+    setCurrentMerchant(updatedMerchant);
+    localStorage.setItem('saathi_current_merchant', JSON.stringify(updatedMerchant));
+
+    const updatedList = merchantsList.map((m) =>
+      m.id === currentMerchant.id ? updatedMerchant : m
+    );
+    setMerchantsList(updatedList);
+    localStorage.setItem('saathi_merchants_list', JSON.stringify(updatedList));
+  };
+
   // Logout / Reset to Guest
   const logout = () => {
     setCurrentMerchant(null);
@@ -199,6 +231,7 @@ export const AuthProvider = ({ children }) => {
         merchantsList,
         switchMerchant,
         registerMerchant,
+        updateMerchantVoiceProfile,
         logout,
       }}
     >
