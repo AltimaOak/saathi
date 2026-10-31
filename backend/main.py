@@ -47,7 +47,7 @@ all_allowed_origins = list(set(default_origins + origins_from_env))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=all_allowed_origins,
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|.*\.vercel\.app)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -129,6 +129,8 @@ class StageUpdateRequest(BaseModel):
 # Endpoints
 
 @app.get("/")
+@app.get("/api")
+@app.get("/api/")
 def root():
     return JSONResponse({
         "service": "Saathi Backend API",

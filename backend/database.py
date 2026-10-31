@@ -1,4 +1,5 @@
 import os
+import tempfile
 from pathlib import Path
 from datetime import datetime
 import zoneinfo
@@ -10,6 +11,13 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 load_dotenv()
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
+def get_sqlite_path() -> str:
+    # On Vercel / AWS Lambda, the app root is read-only. Fallback DB must write to /tmp.
+    if os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
+        tmp_db = Path(tempfile.gettempdir()) / "dev_fallback.db"
+        return f"sqlite:///{tmp_db}"
+    return "sqlite:///./dev_fallback.db"
+
 def now_ist() -> datetime:
     """Return naive datetime in Asia/Kolkata."""
     return datetime.now(zoneinfo.ZoneInfo("Asia/Kolkata")).replace(tzinfo=None)
@@ -17,7 +25,7 @@ def now_ist() -> datetime:
 def get_database_url() -> str:
     raw_url = os.getenv("DATABASE_URL", "").strip()
     if not raw_url:
-        return "sqlite:///./dev_fallback.db"
+        return get_sqlite_path()
 
     # Select available PostgreSQL driver: psycopg (v3) preferred, fallback to psycopg2
     driver = None
@@ -30,7 +38,7 @@ def get_database_url() -> str:
             driver = "postgresql+psycopg2://"
         except ImportError:
             print("Notice: Neither psycopg (v3) nor psycopg2 found. Falling back to SQLite.")
-            return "sqlite:///./dev_fallback.db"
+            return get_sqlite_path()
 
     clean_url = raw_url
     if clean_url.startswith("postgres://"):
@@ -60,7 +68,7 @@ def create_db_engine():
         )
     except Exception as e:
         print(f"Warning creating engine for {url}: {e}. Falling back to SQLite.")
-        return create_engine("sqlite:///./dev_fallback.db", connect_args={"check_same_thread": False})
+        return create_engine(get_sqlite_path(), connect_args={"check_same_thread": False})
 
 engine = create_db_engine()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -68,8 +76,9 @@ Base = declarative_base()
 
 def fallback_to_sqlite():
     global engine, SessionLocal
-    print("Failing over database engine to SQLite dev_fallback.db...")
-    engine = create_engine("sqlite:///./dev_fallback.db", connect_args={"check_same_thread": False})
+    sqlite_url = get_sqlite_path()
+    print(f"Failing over database engine to SQLite ({sqlite_url})...")
+    engine = create_engine(sqlite_url, connect_args={"check_same_thread": False})
     SessionLocal.configure(bind=engine)
     return engine
 

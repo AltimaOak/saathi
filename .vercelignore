@@ -1,0 +1,8 @@
+.git
+.github
+backend/venv
+frontend/node_modules
+*.pyc
+__pycache__
+dev_fallback.db
+*.log
