@@ -3,9 +3,21 @@
  * Provides base fetchJson and streamChat helpers for the FastAPI backend.
  */
 
-export const BASE_URL = import.meta.env.VITE_API_URL !== undefined
-  ? import.meta.env.VITE_API_URL
-  : (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? '' : 'http://localhost:8000');
+export const BASE_URL = (() => {
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    // When running in production (e.g. on Vercel or any non-localhost domain),
+    // NEVER use localhost:8000! Requests must go to the same origin relative /api
+    if (host !== 'localhost' && host !== '127.0.0.1' && host !== '0.0.0.0') {
+      const customUrl = import.meta.env.VITE_API_URL;
+      if (customUrl && customUrl.startsWith('http') && !customUrl.includes('localhost') && !customUrl.includes('127.0.0.1')) {
+        return customUrl;
+      }
+      return '';
+    }
+  }
+  return import.meta.env.VITE_API_URL || 'http://localhost:8000';
+})();
 
 export async function fetchJson(endpoint, options = {}) {
   const { silent = false, ...fetchOptions } = options;
