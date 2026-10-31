@@ -1,0 +1,31 @@
+# Environment Variables
+.env
+*.env
+backend/.env
+frontend/.env
+
+# Python
+backend/venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.sqlite
+dev_fallback.db
+backend/dev_fallback.db
+
+# Node / Frontend
+frontend/node_modules/
+node_modules/
+frontend/dist/
+dist/
+.vite/
+frontend/.vite/
+
+# Logs & OS
+*.log
+.DS_Store
+Thumbs.db
+

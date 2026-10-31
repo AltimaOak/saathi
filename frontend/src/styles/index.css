@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Reduced motion preference */
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Hard shadow button with physical 2px press effect */
+  .btn-primary {
+    @apply inline-flex items-center justify-center font-heading font-bold px-6 py-3.5 rounded-2xl bg-yellow text-navy border-2 border-navy shadow-hard transition-all duration-100 cursor-pointer active:translate-x-[2px] active:translate-y-[2px] active:shadow-hard-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy focus-visible:ring-offset-2;
+  }
+
+  .btn-navy {
+    @apply inline-flex items-center justify-center font-heading font-bold px-6 py-3.5 rounded-2xl bg-navy text-white border-2 border-navy shadow-hard transition-all duration-100 cursor-pointer hover:bg-royal active:translate-x-[2px] active:translate-y-[2px] active:shadow-hard-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky focus-visible:ring-offset-2;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center font-heading font-bold px-6 py-3.5 rounded-2xl bg-white text-navy border-2 border-navy shadow-hard transition-all duration-100 cursor-pointer hover:bg-soft-blue active:translate-x-[2px] active:translate-y-[2px] active:shadow-hard-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy focus-visible:ring-offset-2;
+  }
+
+  .btn-sm-yellow {
+    @apply inline-flex items-center justify-center font-heading font-bold px-4 py-2 text-sm rounded-xl bg-yellow text-navy border-2 border-navy shadow-hard-sm transition-all duration-100 cursor-pointer hover:bg-yellow-hover active:translate-x-[1px] active:translate-y-[1px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-navy;
+  }
+
+  .btn-sm-navy {
+    @apply inline-flex items-center justify-center font-heading font-bold px-4 py-2 text-sm rounded-xl bg-navy text-white border-2 border-navy shadow-hard-sm transition-all duration-100 cursor-pointer hover:bg-royal active:translate-x-[1px] active:translate-y-[1px] active:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky;
+  }
+
+  .card-hard {
+    @apply bg-white border-2 border-navy rounded-[18px] shadow-hard transition-all duration-150;
+  }
+
+  .card-hard-hover {
+    @apply bg-white border-2 border-navy rounded-[18px] shadow-hard transition-all duration-150 hover:-translate-y-1 hover:shadow-hard-lg;
+  }
+
+  .badge-sticker {
+    @apply inline-block bg-yellow text-navy font-heading font-extrabold text-xs uppercase tracking-wider px-3 py-1 rounded-full border-2 border-navy shadow-hard-sm;
+  }
+}
+
