@@ -190,7 +190,7 @@ export default function FraudModal({
               <form onSubmit={handleSubmit} className="space-y-5">
                 {/* File Upload Box */}
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  <label htmlFor="fraud-file-upload" className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
                     Payment Screenshot / Receipt Slip (Optional)
                   </label>
                   <div
@@ -199,6 +199,8 @@ export default function FraudModal({
                   >
                     <input
                       ref={fileInputRef}
+                      id="fraud-file-upload"
+                      name="evidenceFile"
                       type="file"
                       accept="image/png,image/jpeg,image/webp,application/pdf"
                       onChange={handleFileChange}
@@ -233,6 +235,7 @@ export default function FraudModal({
                     </label>
                     <input
                       id="utr-input"
+                      name="candidateUtr"
                       type="text"
                       placeholder="e.g. 430198271049"
                       value={manualUtr}
@@ -246,6 +249,7 @@ export default function FraudModal({
                     </label>
                     <input
                       id="amt-input"
+                      name="claimedAmount"
                       type="number"
                       step="0.01"
                       placeholder="e.g. 1450.00"
@@ -257,18 +261,20 @@ export default function FraudModal({
                 </div>
 
                 {/* Stale Ledger Simulation Switch */}
-                <div className="flex items-center justify-between rounded-2xl border border-dashed border-amber-300 bg-amber-50/50 p-3.5">
+                <label htmlFor="simulated-stale-checkbox" className="flex items-center justify-between rounded-2xl border border-dashed border-amber-300 bg-amber-50/50 p-3.5 cursor-pointer">
                   <div>
                     <p className="text-xs font-bold text-amber-900">Simulate Stale / Offline Ledger</p>
                     <p className="text-[11px] text-amber-700">Test fail-closed behavior (returns UNABLE_TO_VERIFY)</p>
                   </div>
                   <input
+                    id="simulated-stale-checkbox"
+                    name="simulatedStale"
                     type="checkbox"
                     checked={simulatedStale}
                     onChange={(e) => setSimulatedStale(e.target.checked)}
                     className="h-4 w-4 rounded accent-[#00baf2]"
                   />
-                </div>
+                </label>
 
                 {errorMsg && (
                   <p className="rounded-xl bg-rose-50 p-3 text-xs font-semibold text-rose-700 border border-rose-200">

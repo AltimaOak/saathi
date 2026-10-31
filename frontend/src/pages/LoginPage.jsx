@@ -148,7 +148,7 @@ export const LoginPage = () => {
               {!otpSent ? (
                 <form onSubmit={handleSendOtp} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-heading font-bold text-navy mb-1.5 uppercase tracking-wider">
+                    <label htmlFor="login-phone" className="block text-xs font-heading font-bold text-navy mb-1.5 uppercase tracking-wider">
                       Merchant Mobile Number
                     </label>
                     <div className="flex items-center">
@@ -156,7 +156,10 @@ export const LoginPage = () => {
                         +91
                       </span>
                       <input
+                        id="login-phone"
+                        name="phone"
                         type="tel"
+                        autoComplete="tel"
                         value={phoneInput}
                         onChange={(e) => setPhoneInput(e.target.value)}
                         placeholder="98201 44910"
@@ -183,11 +186,14 @@ export const LoginPage = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-heading font-bold text-navy mb-1.5 uppercase tracking-wider">
+                    <label htmlFor="login-otp" className="block text-xs font-heading font-bold text-navy mb-1.5 uppercase tracking-wider">
                       4-Digit OTP Code
                     </label>
                     <input
+                      id="login-otp"
+                      name="otp"
                       type="text"
+                      autoComplete="one-time-code"
                       maxLength={4}
                       value={otpInput}
                       onChange={(e) => setOtpInput(e.target.value)}
@@ -219,11 +225,14 @@ export const LoginPage = () => {
           {activeTab === 'signup' && (
             <form onSubmit={handleSignupSubmit} className="space-y-3.5 animate-fadeIn">
               <div>
-                <label className="block text-xs font-heading font-bold text-navy mb-1">
+                <label htmlFor="signup-name" className="block text-xs font-heading font-bold text-navy mb-1">
                   Merchant Full Name
                 </label>
                 <input
+                  id="signup-name"
+                  name="name"
                   type="text"
+                  autoComplete="name"
                   value={signupData.name}
                   onChange={(e) => setSignupData({ ...signupData, name: e.target.value })}
                   placeholder="e.g. Anand Kulkarni"
@@ -233,11 +242,14 @@ export const LoginPage = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-heading font-bold text-navy mb-1">
+                <label htmlFor="signup-shop" className="block text-xs font-heading font-bold text-navy mb-1">
                   Shop / Business Name
                 </label>
                 <input
+                  id="signup-shop"
+                  name="shopName"
                   type="text"
+                  autoComplete="organization"
                   value={signupData.shopName}
                   onChange={(e) => setSignupData({ ...signupData, shopName: e.target.value })}
                   placeholder="e.g. Kulkarni Sweets & Dairy"
@@ -248,11 +260,14 @@ export const LoginPage = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-heading font-bold text-navy mb-1">
+                  <label htmlFor="signup-city" className="block text-xs font-heading font-bold text-navy mb-1">
                     City
                   </label>
                   <input
+                    id="signup-city"
+                    name="city"
                     type="text"
+                    autoComplete="address-level2"
                     value={signupData.city}
                     onChange={(e) => setSignupData({ ...signupData, city: e.target.value })}
                     placeholder="e.g. Pune"
@@ -262,10 +277,12 @@ export const LoginPage = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-heading font-bold text-navy mb-1">
+                  <label htmlFor="signup-bank" className="block text-xs font-heading font-bold text-navy mb-1">
                     Bank
                   </label>
                   <input
+                    id="signup-bank"
+                    name="bankName"
                     type="text"
                     value={signupData.bankName}
                     onChange={(e) => setSignupData({ ...signupData, bankName: e.target.value })}

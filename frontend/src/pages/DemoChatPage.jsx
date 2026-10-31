@@ -746,6 +746,8 @@ export const DemoChatPage = () => {
                   </button>
                   <input
                     ref={inputRef}
+                    id="chat-message-input"
+                    name="message"
                     value={inputVal}
                     onChange={(e) => setInputVal(e.target.value)}
                     disabled={busy || isListening}

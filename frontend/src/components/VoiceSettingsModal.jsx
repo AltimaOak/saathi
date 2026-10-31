@@ -178,6 +178,7 @@ export default function VoiceSettingsModal({
               <div className="relative">
                 <select
                   id="pref-lang"
+                  name="preferredLanguage"
                   value={selectedLang}
                   onChange={(e) => setSelectedLang(e.target.value)}
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm font-semibold text-slate-800 shadow-sm transition focus:border-[#00baf2] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00baf2]/20"
@@ -225,6 +226,7 @@ export default function VoiceSettingsModal({
               </label>
               <select
                 id="voice-select"
+                name="preferredVoiceIdentifier"
                 value={selectedVoice}
                 onChange={(e) => setSelectedVoice(e.target.value)}
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm font-semibold text-slate-800 shadow-sm transition focus:border-[#00baf2] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00baf2]/20"
@@ -276,6 +278,7 @@ export default function VoiceSettingsModal({
               {/* Slider */}
               <input
                 id="speed-slider"
+                name="speechRate"
                 type="range"
                 min="0.75"
                 max="1.50"
